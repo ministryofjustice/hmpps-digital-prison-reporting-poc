@@ -8,7 +8,8 @@
 - Email : digitalprisonreporting@digital.justice.gov.uk
 - Slack : hmpps-dpr-poc
 
-This repository is for POC only
+***This repository is for POC only***
+
 
 #### ToDo
 
@@ -22,8 +23,10 @@ This repository is for POC only
 ## Details
 
 #### Confluence: TBC
-###### Overview
-    TBC
+#### Overview
+```
+TBC
+```
 
 
 #### Branch Naming 
@@ -39,9 +42,11 @@ This repository is for POC only
 - Please reference any relevant JIRA tickets in pull request notes.
 
 
-###### Local Development or Execution
+#### Local Development or Execution
 
-    TBC
+```
+TBC
+```
 
 ### Notes
 
