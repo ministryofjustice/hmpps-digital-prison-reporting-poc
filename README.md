@@ -16,24 +16,26 @@ This repository is for POC only containing:
 
 ## Details
 
-- TBC
+###### Overview
+    TBC
 
 
-### Branch Naming 
+#### Branch Naming 
 
 - Please use wherever possible the JIRA ticket as branch name.
 
-### Commits
+#### Commits
 
 - Please reference any relevant JIRA tickets in commit message.
 
-### Pull Request
+#### Pull Request
 
 - Please reference any relevant JIRA tickets in pull request notes.
 
-### Local Development or Execution
 
-- TBC
+###### Local Development or Execution
+
+    TBC
 
 ### Notes
 
