@@ -4,9 +4,9 @@
 
 #### CODEOWNER  
 
-- Team : @ministryofjustice/hmpps-digital-prison-reporting
+- Team : [hmpps-digital-prison-reporting](https://github.com/orgs/ministryofjustice/teams/hmpps-digital-prison-reporting)
 - Email : digitalprisonreporting@digital.justice.gov.uk
-- Slack : #hmpps-dpr-poc
+- Slack : [#hmpps-dpr-poc](https://mojdt.slack.com/archives/C03TBLUL45B)
 
 ***This repository is for POC only***
 
@@ -22,7 +22,8 @@
 
 ## Details
 
-#### Confluence: TBC
+#### Confluence Page: 
+[TBC]()
 #### Overview
 ```
 TBC
@@ -35,11 +36,11 @@ TBC
 
 #### Commits
 
-- Please reference any relevant JIRA tickets in commit message.
+- Please reference or link any relevant JIRA tickets in commit message.
 
 #### Pull Request
 
-- Please reference any relevant JIRA tickets in pull request notes.
+- Please reference or link any relevant JIRA tickets in pull request notes.
 
 
 #### Local Development or Execution
