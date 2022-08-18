@@ -4,7 +4,7 @@
 
 #### CODEOWNER  
 
-- Team : @hmpps-digital-prison-reporting
+- Team : @ministryofjustice/hmpps-digital-prison-reporting
 - Email : digitalprisonreporting@digital.justice.gov.uk
 - Slack : #hmpps-dpr-poc
 
