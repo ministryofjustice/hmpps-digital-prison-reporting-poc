@@ -1,0 +1,234 @@
+version: 2.1
+
+orbs:
+  semver-orb: tv2norge/semver-orb@0.0.1
+
+parameters:
+  jdk-image:
+    type: string
+    default: "cimg/openjdk"
+  jdk-imagetag:
+    type: string
+    default: "11.0"
+  workingdir:
+    type: string
+    default: "~/project"
+  maven-build-cmd:
+    type: string
+    default: "clean install"
+  artifactstore:
+    type: string
+    default: "dpr-artifact-store-development"
+  aws-region:
+    type: string
+    default: "eu-west-2"
+
+commands:
+  artifacts-sync:
+    description: "Deploy Artifacts to S3"
+    parameters:
+      s3-artifact-store:
+        type: string
+        default: "none"
+    steps:
+      - run:
+          name: sync-artifacts
+          command: |
+            aws s3 sync digital-prisons-reporting/cloud-platform/target s3://<< parameters.s3-artifact-store >>/artifacts/cloud-platform/$CIRCLE_PROJECT_REPONAME/ --exclude "*" --include "cloud-platform*.jar" --region << pipeline.parameters.aws-region >>         
+            aws s3 sync digital-prisons-reporting/cloud-platform/script s3://<< parameters.s3-artifact-store >>/artifacts/cloud-platform/$CIRCLE_PROJECT_REPONAME/ --exclude "*" --include "*.scala" --region << pipeline.parameters.aws-region >>
+            aws s3 sync digital-prisons-reporting/domain-platform/target s3://<< parameters.s3-artifact-store >>/artifacts/domain-platform/$CIRCLE_PROJECT_REPONAME/ --exclude "*" --include "domain-platform*.jar" --region << pipeline.parameters.aws-region >>
+            aws s3 sync digital-prisons-reporting/domain-platform/script s3://<< parameters.s3-artifact-store >>/artifacts/domain-platform/$CIRCLE_PROJECT_REPONAME/ --exclude "*" --include "*.scala" --region << pipeline.parameters.aws-region >>
+
+jobs:
+  verify-version:
+    executor: semver-orb/default
+    steps:
+      - semver-orb/setup
+      - semver-orb/print
+      - semver-orb/export-tag
+      - run: |
+          cp $BASH_ENV bash.env
+      - persist_to_workspace:
+          root: << pipeline.parameters.workingdir >>
+          paths:
+            - bash.env
+
+  build-tags:
+    executor: semver-orb/default
+    steps:
+      - semver-orb/setup
+      - semver-orb/tagnext
+      - semver-orb/export-tag
+      - semver-orb/print
+      - run: |
+          cp $BASH_ENV bash.env
+      - persist_to_workspace:
+          root: << pipeline.parameters.workingdir >>
+          paths:
+            - bash.env
+
+  checkout:
+    working_directory: << pipeline.parameters.workingdir >>
+    docker:
+      - image: << pipeline.parameters.jdk-image >>:<< pipeline.parameters.jdk-imagetag >>
+    steps:
+      - checkout
+      - attach_workspace:
+          at: << pipeline.parameters.workingdir >>
+      - run: |
+          cat bash.env >> $BASH_ENV
+      - run:
+          name: Check Java Version
+          command: |
+            java --version;
+            echo "Printing SEM VERSION"
+            echo $SEMVER_VERSION
+            echo $CIRCLE_PROJECT_REPONAME
+      - persist_to_workspace:
+          root: << pipeline.parameters.workingdir >>
+          paths:
+            - .
+
+  tests:
+    docker:
+      - image: << pipeline.parameters.jdk-image >>:<< pipeline.parameters.jdk-imagetag >>
+    steps:
+      - attach_workspace:
+          at: << pipeline.parameters.workingdir >>
+      - run:
+          name: maven tests
+          command: |
+            mvn test
+
+  build:
+    docker:
+      - image: << pipeline.parameters.jdk-image >>:<< pipeline.parameters.jdk-imagetag >>
+    steps:
+      - attach_workspace:
+          at: << pipeline.parameters.workingdir >>
+      - run: |
+          cat bash.env >> $BASH_ENV
+      - run:
+          name: set release version
+          command: |
+            find . -type f -name "*.xml" -exec sed -i "s/version_place_holder/$SEMVER_VERSION/g" {} \;
+      - run:
+          name: pre-build
+          command: |
+            mvn -N clean install;
+            cd digital-prisons-reporting; mvn -N clean install
+      - run:
+          name: build-common
+          command: |
+            cd digital-prisons-reporting/common; mvn clean install
+      - run:
+          name: build-cloud-platform
+          command: |
+            cd digital-prisons-reporting/cloud-platform; mvn clean install
+      - run:
+          name: build-domain-platform
+          command: |
+            cd digital-prisons-reporting/domain-platform; mvn clean install
+      - store_artifacts:
+          path: digital-prisons-reporting/common/target/surefire-reports
+          destination: surefire-reports
+          when: always
+      - store_artifacts:
+          path: digital-prisons-reporting/cloud-platform/target/surefire-reports
+          destination: surefire-reports
+          when: always
+      - store_artifacts:
+          path: digital-prisons-reporting/domain-platform/target/surefire-reports
+          destination: surefire-reports
+          when: always
+      - persist_to_workspace:
+          root: << pipeline.parameters.workingdir >>
+          paths:
+            - .
+
+  deploy:
+    parameters:
+      artifact-store:
+        type: string
+        default: "none"
+    machine:
+      enabled: true
+    steps:
+      - attach_workspace:
+          at: << pipeline.parameters.workingdir >>
+      - run: |
+          cat bash.env >> $BASH_ENV
+      - run:
+          name: Tag Artifacts
+          command: |
+            echo "Tag Latest Artifacts to vLatest"
+            cp -rp digital-prisons-reporting/cloud-platform/target/cloud-platform-${SEMVER_VERSION}.jar digital-prisons-reporting/cloud-platform/target/cloud-platform-vLatest.jar 
+            cp -rp digital-prisons-reporting/domain-platform/target/domain-platform-${SEMVER_VERSION}.jar digital-prisons-reporting/domain-platform/target/domain-platform-vLatest.jar  
+
+            echo "Tag Latest Scripts to vLatest"
+            for script in $(find digital-prisons-reporting/domain-platform/script -name '*.scala') ; do cp -rp $script $(echo "$script" | sed -r "s|.scala|-vLatest.scala|g") ; mv $script $(echo "$script" | sed -r "s|.scala|-${SEMVER_VERSION}.scala|g") ; done
+            for script in $(find digital-prisons-reporting/cloud-platform/script -name '*.scala') ; do cp -rp $script $(echo "$script" | sed -r "s|.scala|-vLatest.scala|g") ; mv $script $(echo "$script" | sed -r "s|.scala|-${SEMVER_VERSION}.scala|g") ; done
+
+            echo "List Artifacts"
+            pwd; ls -lsrt digital-prisons-reporting/domain-platform/; ls -lsrt digital-prisons-reporting/cloud-platform/*
+      - artifacts-sync:
+          s3-artifact-store: << parameters.artifact-store >>
+
+  release:
+    machine:
+      enabled: true
+    steps:
+      - attach_workspace:
+          at: << pipeline.parameters.workingdir >>
+      - run:
+          name: notification
+          command: echo "Release Artifacts, if the branch is RELEASE"
+      - run:
+          name: Release
+          command: |
+            aws s3 sync target s3://<< pipeline.parameters.artifactstore >>/artifacts --exclude "*" --include "hello-world*.jar" --region << pipeline.parameters.aws-region >>
+
+workflows:
+  version: 2
+  maven-pipeline:
+    jobs:
+      - verify-version:
+          name: "verify-version"
+      - checkout:
+          name: "checkout"
+          requires:
+            - verify-version
+      - build-tags:
+          requires:
+            - checkout
+          filters:
+            branches:
+              only:
+                - master
+      - build:
+          context:
+            - digital-prison-reporting-dev
+          requires:
+            - checkout
+            - build-tags
+      - deploy:
+          context:
+            - digital-prison-reporting-dev
+          artifact-store: << pipeline.parameters.artifactstore >>
+          requires:
+            - build
+            - build-tags
+          filters:
+            branches:
+              only:
+                - master
+      - release:
+          context:
+            - digital-prison-reporting-release
+          requires:
+            - build
+            - deploy
+          filters:
+            branches:
+              only:
+                - release*
